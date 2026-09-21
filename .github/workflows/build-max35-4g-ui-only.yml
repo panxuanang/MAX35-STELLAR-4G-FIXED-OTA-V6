@@ -1,0 +1,158 @@
+name: Build MAX35 4G - Fixed Backend + STELLAR UI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'overlay/**'
+      - 'scripts/**'
+      - '.github/workflows/build-max35-4g-ui-only.yml'
+      - 'VERSION'
+
+permissions:
+  contents: read
+
+env:
+  # Public SpotPear source package used by the MAX35 vendor tutorial.
+  SPOTPEAR_DRIVE_ID: 1WIrLLpS7OxHll7KD5v6kePZM50hAtzlf
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      # SpotPear's current MAX35 tutorial specifies ESP-IDF 5.5 or newer.
+      # Keep the vendor branch on the 5.5 line instead of migrating it to IDF 6.
+      image: espressif/idf:v5.5.2
+
+    steps:
+      - name: Checkout UI overlay
+        uses: actions/checkout@v5
+        with:
+          path: product
+
+      - name: Prepare ESP-IDF and downloader
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py --version
+          python --version
+          python -m pip install --disable-pip-version-check --no-cache-dir gdown
+
+      - name: Download SpotPear MAX35 vendor xiaozhi source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf vendor-src /tmp/spotpear-max35.zip
+          mkdir -p vendor-src
+          python -m gdown "${SPOTPEAR_DRIVE_ID}" -O /tmp/spotpear-max35.zip
+          python - <<'PY'
+          import zipfile
+          p = '/tmp/spotpear-max35.zip'
+          if not zipfile.is_zipfile(p):
+              raise SystemExit('SpotPear source download is not a ZIP')
+          print('[OK] SpotPear source ZIP')
+          PY
+          unzip -q /tmp/spotpear-max35.zip -d vendor-src
+          VENDOR_ROOT="$(python product/scripts/find_source_root.py vendor-src)"
+          echo "VENDOR_ROOT=$VENDOR_ROOT" >> "$GITHUB_ENV"
+          echo "Vendor source root: $VENDOR_ROOT"
+
+      - name: Attach STELLAR UI to vendor 4G board only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python product/scripts/patch_vendor_4g_ui.py \
+            --vendor "$VENDOR_ROOT" \
+            --product product
+
+      - name: Lock backend discovery to private OTA URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python product/scripts/lock_ota_runtime.py \
+            --vendor "$VENDOR_ROOT" \
+            --url "http://124.221.112.55:8002/xiaozhi/ota/"
+
+      - name: Select MAX35 ML307 board and hardware SKU
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          cd "$VENDOR_ROOT"
+          rm -f sdkconfig sdkconfig.old
+          idf.py set-target esp32s3
+          python "$GITHUB_WORKSPACE/product/scripts/apply_sdkconfig.py" .
+          idf.py reconfigure
+          python "$GITHUB_WORKSPACE/product/scripts/preflight_4g.py" .
+
+      - name: Show selected network/audio configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$VENDOR_ROOT"
+          echo '--- selected board / modem ---'
+          grep -E '^(CONFIG_.*(SPOTPEAR|MAX35|ML307|4G).*=y|CONFIG_UART_ISR_IN_IRAM=y)$' sdkconfig || true
+          echo '--- fixed OTA/backend discovery ---'
+          grep -E '^CONFIG_OTA_URL=' sdkconfig || true
+          echo '--- audio-related config (diagnostic; not changed by overlay) ---'
+          grep -Ei '^(CONFIG_.*(ES8311|ES7210|AUDIO|AEC|AFE|I2S).*=y)' sdkconfig | head -80 || true
+
+      - name: Build vendor 4G stack with STELLAR UI and fixed backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          cd "$VENDOR_ROOT"
+          idf.py build
+
+      - name: Create one-file merged firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          cd "$VENDOR_ROOT"
+          idf.py merge-bin
+          if [ ! -f build/merged-binary.bin ]; then
+            echo 'ERROR: idf.py merge-bin did not create build/merged-binary.bin'
+            exit 1
+          fi
+
+      - name: Package firmware artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '\r\n' < product/VERSION)"
+          mkdir -p product/dist
+          cp "$VENDOR_ROOT/build/merged-binary.bin" \
+            "product/dist/MAX35_STELLAR_4G_FIXED_BACKEND_${VERSION}_merged-binary.bin"
+          cp "$VENDOR_ROOT/build/flasher_args.json" product/dist/ 2>/dev/null || true
+          cp "$VENDOR_ROOT/build/project_description.json" product/dist/ 2>/dev/null || true
+          cp "$VENDOR_ROOT/.stellar_patch_manifest.json" product/dist/PATCH_MANIFEST.json
+          cp "$VENDOR_ROOT/.stellar_fixed_ota.json" product/dist/FIXED_OTA_MANIFEST.json
+          cp "$VENDOR_ROOT/sdkconfig" product/dist/sdkconfig.used
+          (
+            cd product/dist
+            sha256sum *.bin > SHA256SUMS.txt
+          )
+          {
+            echo "product_version=$VERSION"
+            echo "architecture=SpotPear vendor MAX35 4G source + STELLAR UI + fixed backend discovery"
+            echo "network=ML307 Cat.1 (vendor implementation retained)"
+            echo "audio=vendor implementation retained"
+            echo "ota_url=http://124.221.112.55:8002/xiaozhi/ota/"
+            echo "ota_policy=hard-locked; provisioning/NVS ota_url override disabled"
+            echo "flash_address=0x0"
+            echo "idf=$(bash -lc '. \"$IDF_PATH/export.sh\" >/dev/null 2>&1; idf.py --version' || true)"
+            echo "build_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > product/dist/BUILD_INFO.txt
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: MAX35-STELLAR-4G-FIXED-BACKEND-Firmware
+          path: product/dist/
+          if-no-files-found: error
+          retention-days: 30
