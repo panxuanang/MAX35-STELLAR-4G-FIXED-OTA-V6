@@ -1,0 +1,28 @@
+MAX35 STELLAR 4G 固定后台版 上传/编译说明
+======================================
+
+1. 新建 GitHub 仓库。
+2. 把本 ZIP 解压后的“目录内容”上传到仓库根目录。
+3. 确认根目录能直接看到：
+   .github/
+   overlay/
+   scripts/
+   README.md
+   VERSION
+4. 打开 GitHub -> Actions。
+5. 运行：Build MAX35 4G - Fixed Backend + STELLAR UI。
+6. 构建完成后下载 artifact：
+   MAX35-STELLAR-4G-FIXED-BACKEND-Firmware
+7. 烧录其中的：
+   MAX35_STELLAR_4G_FIXED_BACKEND_2.1.0_merged-binary.bin
+8. 合并 BIN 烧录地址：0x0。
+
+固定后台：
+http://124.221.112.55:8002/xiaozhi/ota/
+
+重要：
+- 不需要进 Wi-Fi 配网页面选择 OTA 地址。
+- CONFIG_OTA_URL 和运行时 GetCheckVersionUrl() 都被固定。
+- 即使旧 NVS 里留有其它 ota_url，也不会覆盖这个地址。
+- CI 下载 SpotPear MAX35 厂商源码并强制选择 ML307/4G 板型。
+- 找不到 4G 板型或无法确认 OTA 运行时锁定时，构建会直接失败。

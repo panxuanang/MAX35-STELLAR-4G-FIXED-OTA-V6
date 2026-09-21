@@ -1,0 +1,22 @@
+以后改 UI 的规则
+================
+
+推荐只改：
+- overlay/main/display/stellar_max35/ui_home.cc
+- overlay/main/display/stellar_max35/ui_chat.cc
+- overlay/main/display/stellar_max35/ui_character.c/.h
+- overlay/main/display/stellar_max35/stellar_max35_display.cc
+
+不要为了换 UI 去改：
+- ML307 / modem
+- AudioCodec / ES8311 / ES7210 / I2S
+- application.cc
+- audio_service.cc
+- websocket/mqtt/protocol
+
+本 V6 有一个刻意的例外：
+- OTA / 后台发现入口被固定为 http://124.221.112.55:8002/xiaozhi/ota/
+- scripts/lock_ota_runtime.py 会让 GetCheckVersionUrl() 直接返回 CONFIG_OTA_URL
+- 这是为了让 4G 设备无需 Wi-Fi 配网即可连接你的后台
+
+除此之外仍遵循“原厂 4G/音频底座 + 只换 UI”的开发方式。

@@ -1,0 +1,7 @@
+固定 OTA / 后台发现地址：
+http://124.221.112.55:8002/xiaozhi/ota/
+
+这不是只用于固件升级。小智会通过这个接口获取 websocket / mqtt 等会话连接参数。
+本工程禁止 NVS / Wi-Fi 配网页面中的 ota_url 覆盖它。
+
+请保证 OTA 接口向 4G 设备返回的 websocket/mqtt 地址同样是公网可达地址。

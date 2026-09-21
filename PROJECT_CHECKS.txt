@@ -1,0 +1,20 @@
+MAX35 STELLAR 4G Fixed-Backend checks
+=====================================
+
+[PASS] Old current-78/Wi-Fi-first importer removed.
+[PASS] Build base is SpotPear vendor firmware.
+[PASS] 4G board selector requires ML307/4G evidence.
+[PASS] Missing/ambiguous 4G board => hard failure; no Wi-Fi fallback.
+[PASS] Alternate MAX35 board choices are disabled in sdkconfig.
+[PASS] STELLAR changes remain in the display/UI layer.
+[PASS] ML307/audio/application/protocol implementations are not transplanted from Wi-Fi/current-78.
+[PASS] CONFIG_OTA_URL is forced to http://124.221.112.55:8002/xiaozhi/ota/.
+[PASS] Runtime GetCheckVersionUrl() is patched to return CONFIG_OTA_URL directly.
+[PASS] NVS/provisioning ota_url cannot override the fixed backend.
+[PASS] Synthetic runtime OTA-lock test passed.
+[PASS] Synthetic sdkconfig fixed-URL test passed.
+[PASS] Python scripts compile successfully.
+
+FULL FIRMWARE BUILD
+- Performed by GitHub Actions because the SpotPear source package and ESP-IDF managed components are downloaded there.
+- Workflow runs fixed-backend preflight before idf.py build.

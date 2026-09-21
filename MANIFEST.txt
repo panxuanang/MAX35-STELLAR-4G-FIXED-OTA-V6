@@ -1,0 +1,28 @@
+MAX35-STELLAR-4G-FIXED-OTA-V6
+Version: 2.1.0
+
+ARCHITECTURE
+- Firmware base: SpotPear MAX35 vendor xiaozhi source
+- Required board: Spotpear ESP32-S3-3.5-LCD-cam-ML307 / equivalent Kconfig symbol
+- UI scope: STELLAR display/UI overlay
+- Network/audio/application/protocol: vendor-owned and retained
+- Intentional core exception: OTA/backend discovery URL is hard-locked
+- Fixed OTA URL: http://124.221.112.55:8002/xiaozhi/ota/
+- NVS/provisioning ota_url override: disabled in GetCheckVersionUrl()
+
+WORKFLOW
+.github/workflows/build-max35-4g-ui-only.yml
+
+SCRIPTS
+scripts/find_source_root.py
+scripts/patch_vendor_4g_ui.py
+scripts/lock_ota_runtime.py
+scripts/apply_sdkconfig.py
+scripts/preflight_4g.py
+
+UI
+- overlay/main/display/stellar_max35/stellar_max35_display.cc/.h
+- overlay/main/display/stellar_max35/ui_home.cc
+- overlay/main/display/stellar_max35/ui_chat.cc
+- overlay/main/display/stellar_max35/ui_pages.h
+- overlay/main/display/stellar_max35/ui_character.c/.h
